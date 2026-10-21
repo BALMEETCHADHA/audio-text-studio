@@ -1,0 +1,46 @@
+# Render Blueprint. Connect this repo on Render ("New +" -> "Blueprint") and it
+# reads this file and sets the service up. You only paste ONE secret: your
+# GROQ API KEY (free at console.groq.com). Full walkthrough: README.md,
+# section "Going live on Render".
+services:
+  - type: web
+    name: transcript-studio
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free            # $0. Sleeps after 15 min idle; first visit after that takes ~1 min to wake.
+    healthCheckPath: /api/health
+    envVars:
+      # --- Secrets: Render asks you to fill these in; they are never stored in this file. ---
+      - key: OPENAI_API_KEY      # paste your Groq API key here (the name is just what the code reads)
+        sync: false
+      - key: ACCESS_KEY          # STRONGLY advised on a public link. One key, or "ravi=key1,priya=key2" (see .env.example)
+        sync: false
+      - key: DAILY_JOB_LIMIT     # jobs per person per 24h (0 = unlimited). 20 is a sensible start.
+        value: "20"
+
+      # --- Everything below makes Groq do BOTH jobs for free, with no GPU and no big RAM:
+      #     Whisper for the transcript, and an OpenAI open-weight model (gpt-oss) for summary/key points/AI insights.
+      #     Render's free instance has only 512 MB RAM / 0.1 CPU, far too small to run Whisper
+      #     itself, so transcription has to happen on a hosted API. ---
+      - key: TRANSCRIPTION_BACKEND
+        value: openai
+      - key: ANALYSIS_BACKEND
+        value: openai
+      - key: OPENAI_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: TRANSCRIBE_MODEL
+        value: whisper-large-v3   # most accurate; whisper-large-v3-turbo is faster but less accurate
+      - key: TEXT_MODEL
+        value: openai/gpt-oss-120b
+      - key: MAX_UPLOAD_MB        # Groq's free tier rejects audio files over 25 MB
+        value: "25"
+      - key: TTS_ENGINE
+        value: auto
+      - key: STORAGE_DIR
+        value: ./storage
+      - key: ENABLE_DIARIZATION
+        value: "false"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "10"
+      - key: ALLOWED_ORIGINS
+        value: "*"

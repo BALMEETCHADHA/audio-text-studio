@@ -1,0 +1,16 @@
+# Never bake secrets or local-only state into the image.
+backend/.env
+backend/storage/
+backend/venv/
+
+# Caches and VCS metadata — irrelevant to the running app.
+**/__pycache__/
+**/*.pyc
+.git/
+.gitignore
+
+# Not needed at runtime.
+*.md
+run_on_colab.ipynb
+frontend/test_frontend.js
+backend/test_backend.py

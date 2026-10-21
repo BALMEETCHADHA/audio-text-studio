@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Transcript Studio</title>
+<link rel="stylesheet" href="styles.css" />
+<!-- Fonts load AFTER the page is shown (media=print trick). A normal <link rel=stylesheet> to Google
+     Fonts blocks the whole page from painting until it arrives, so on a slow or restricted phone
+     network it left a completely blank white page. If the fonts never load, the system fonts named in
+     styles.css are used. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" media="print" onload="this.media='all'"
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script>
+// Runs before app.js so that even if app.js fails to load or parse (an old phone browser, say), the
+// person sees a message instead of a blank page.
+window.addEventListener("error", function (e) {
+  var box = document.getElementById("fatal-error");
+  if (!box) return;
+  box.textContent = "This page hit a problem (" + (e.message || "unknown error") +
+    "). Try reloading it, or opening it in Chrome or Safari.";
+  box.hidden = false;
+});
+</script>
+</head>
+<body>
+<noscript><p class="fatal-error">This app needs JavaScript. Please turn it on in your browser settings.</p></noscript>
+<div class="fatal-error" id="fatal-error" hidden></div>
+
+<header class="masthead">
+  <button type="button" class="masthead-home" id="nav-home" title="Back to the start page">
+    <span class="masthead-mark">TS</span>
+    <span class="masthead-text">
+      <span class="masthead-title">Transcript Studio</span>
+      <span class="masthead-sub">audio to text &middot; text to audio</span>
+    </span>
+  </button>
+  <nav class="masthead-nav">
+    <span class="account-line" id="account-line" hidden></span>
+    <button type="button" class="btn btn-text" id="btn-sign-out" hidden>Sign out</button>
+    <button type="button" class="btn btn-text" id="nav-history">History</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ============ HOME: choose a tool ============ -->
+  <section id="view-home" class="view">
+    <div class="hero">
+      <svg class="hero-wave" viewBox="0 0 520 90" aria-hidden="true">
+        <g id="wave-bars-home"></g>
+      </svg>
+      <h1>What would you like to do?</h1>
+      <p class="hero-lede">Turn a recording into words, or turn words into a spoken recording. English only.</p>
+    </div>
+    <div class="mode-grid home-grid">
+      <button type="button" class="mode-card home-card" id="home-audio-to-text" data-flow="audio">
+        <span class="mode-tag">A &rarr; T</span>
+        <h3>Audio to Text</h3>
+        <p>Upload or record English audio. Get the word-for-word transcript, a summary, AI insights and highlights.</p>
+      </button>
+      <button type="button" class="mode-card home-card" id="home-text-to-audio" data-flow="text">
+        <span class="mode-tag">T &rarr; A</span>
+        <h3>Text to Audio</h3>
+        <p>Write, paste or upload text (PDF, Word, image). Hear it, or its summary, in 24 voices and accents.</p>
+      </button>
+    </div>
+    <p class="field-hint" id="tts-unavailable" hidden>Text to Audio needs the voice package on the server (<code>pip install edge-tts gTTS</code>). You can still get summaries, but not audio, until it is installed.</p>
+  </section>
+
+  <!-- ============ HERO / UPLOAD ============ -->
+  <section id="view-upload" class="view" hidden>
+    <div class="hero">
+      <svg class="hero-wave" viewBox="0 0 520 90" aria-hidden="true">
+        <g id="wave-bars"></g>
+      </svg>
+      <h1>Give it a voice.<br>Get back words.</h1>
+      <p class="hero-lede">Drop in a recording, browse a file, or capture audio right now — English audio only. Then choose whether you want a full breakdown or a straight transcript.</p>
+    </div>
+
+    <div class="upload-card" id="dropzone">
+      <div class="upload-card-inner">
+        <p class="upload-instruction">Drag an audio file here, or paste one</p>
+        <div class="upload-actions">
+          <button type="button" class="btn btn-primary" id="btn-browse">Browse files</button>
+          <button type="button" class="btn btn-outline" id="btn-record">
+            <span class="rec-dot"></span> <span>Record audio</span>
+          </button>
+        </div>
+        <input type="file" id="file-input" accept="audio/*" hidden />
+        <p class="upload-hint">MP3, WAV, M4A, WEBM — English audio only</p>
+        <p class="upload-hint" id="paste-hint">Copy an audio file, then press <kbd>Ctrl</kbd>+<kbd>V</kbd> (<kbd>&#8984;</kbd>+<kbd>V</kbd> on Mac) anywhere on this page — it is picked up automatically.</p>
+      </div>
+
+      <div class="recording-panel" id="recording-panel" hidden>
+        <span class="rec-dot rec-dot-live"></span>
+        <span id="record-timer">00:00</span>
+        <button type="button" class="btn btn-outline" id="btn-stop-record">Stop</button>
+      </div>
+
+      <div class="file-ready" id="file-ready" hidden>
+        <div>
+          <p class="file-name" id="file-name"></p>
+          <audio id="audio-preview" controls></audio>
+        </div>
+        <button type="button" class="btn btn-text" id="btn-change-file">Choose a different file</button>
+      </div>
+    </div>
+    <div class="options-actions">
+      <button type="button" class="btn btn-text" id="btn-upload-back">&larr; <span>back</span></button>
+    </div>
+  </section>
+
+  <!-- ============ MODE SELECTION ============ -->
+  <section id="view-mode" class="view" hidden>
+    <h2 class="section-title">What do you need from this recording?</h2>
+
+    <div class="mode-grid">
+      <button type="button" class="mode-card" data-mode="full">
+        <span class="mode-tag">01</span>
+        <h3>Full breakdown</h3>
+        <p id="full-desc">Full transcript, a summary at the length you choose, key points, highlighted dates/links/names, and AI insights — downloadable as PDF, Word, or an image.</p>
+      </button>
+      <button type="button" class="mode-card" data-mode="transcribe">
+        <span class="mode-tag">02</span>
+        <h3>Just transcribe</h3>
+        <p>Get a clean, word-for-word English transcript — downloadable as PDF or Word.</p>
+      </button>
+    </div>
+
+    <button type="button" class="btn btn-text" id="btn-back-to-upload">&larr; <span>back</span></button>
+  </section>
+
+  <!-- ============ FULL ANALYSIS OPTIONS ============ -->
+  <section id="view-full-options" class="view" hidden>
+    <h2 class="section-title">Full breakdown options</h2>
+
+    <div class="options-card">
+      <fieldset>
+        <legend>summary length</legend>
+        <div class="summary-picker">
+          <select id="opt-summary-select" class="select-input" aria-label="Summary length in words">
+            <option value="30">30 words</option>
+            <option value="50">50 words</option>
+            <option value="70" selected>70 words</option>
+            <option value="100">100 words</option>
+            <option value="custom">Custom&hellip; (write your own)</option>
+          </select>
+          <input type="number" id="opt-summary-custom" class="text-input summary-custom" min="10" max="500" step="1" placeholder="words, e.g. 150" aria-label="Custom summary length in words" hidden>
+        </div>
+        <p class="field-hint">Pick a length from the list, or choose Custom and type the number of words you want (10 to 500).</p>
+      </fieldset>
+
+      <fieldset class="toggle-list">
+        <legend>include</legend>
+        <label class="toggle-row"><input type="checkbox" id="opt-keypoints" checked> <span>Key points</span></label>
+        <label class="toggle-row"><input type="checkbox" id="opt-highlights" checked> <span>Highlights (dates, links, book/course/names)</span></label>
+        <label class="toggle-row" id="insights-row"><input type="checkbox" id="opt-insights" checked> <span>AI insights</span></label>
+      </fieldset>
+
+      <fieldset class="toggle-list">
+        <legend>audio quality</legend>
+        <label class="toggle-row"><input type="checkbox" id="opt-denoise" checked> <span>Reduce background noise (clearer words)</span></label>
+        <p class="field-hint">Filters out steady background noise (fans, hiss, hum) and evens out volume before transcribing. Helps most with noisy or quiet recordings; adds a little processing time. Skipped automatically if the server has no ffmpeg.</p>
+        <label class="toggle-row" id="spelling-row"><input type="checkbox" id="opt-spelling" checked> <span>Smart spelling fix (names, brands, technical terms)</span></label>
+        <label class="toggle-row" id="speakers-row"><input type="checkbox" id="opt-speakers"> <span>Label who is speaking (Speaker 1, Speaker 2&hellip;)</span></label>
+        <p class="field-hint" id="speakers-hint">For meetings and interviews. Takes extra time. Words are still transcribed the same way.</p>
+        <p class="field-hint" id="spelling-hint">After listening, an AI proofreader repairs words that were clearly misheard (for example &ldquo;Edinet&rdquo; instead of &ldquo;Edunet&rdquo;). It never rewrites sentences, and every change it makes is listed under the transcript.</p>
+      </fieldset>
+
+      <label class="field-label" for="opt-vocab">
+        <span>Names &amp; terms to expect</span> <span class="field-optional">(optional — the best way to get tricky words spelled right)</span>
+      </label>
+      <input type="text" id="opt-vocab" class="text-input" placeholder="e.g. Edunet Foundation, AICTE, BiLSTM, GARCH">
+
+      <label class="field-label" for="opt-context" id="context-label">
+        <span>What is this for?</span> <span class="field-optional">(optional — sharpens the AI insights, e.g. "project proposal", "client call")</span>
+      </label>
+      <input type="text" id="opt-context" class="text-input" placeholder="e.g. product planning meeting">
+
+      <div class="options-actions">
+        <button type="button" class="btn btn-text" id="btn-back-full">&larr; <span>back</span></button>
+        <button type="button" class="btn btn-primary" id="btn-run-full">Run full breakdown</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TRANSCRIBE-ONLY OPTIONS ============ -->
+  <section id="view-transcribe-options" class="view" hidden>
+    <h2 class="section-title">Transcribe options</h2>
+
+    <div class="options-card">
+      <fieldset class="toggle-list">
+        <legend>audio quality</legend>
+        <label class="toggle-row"><input type="checkbox" id="opt-denoise-transcribe" checked> <span>Reduce background noise (clearer words)</span></label>
+        <p class="field-hint">Filters out steady background noise (fans, hiss, hum) and evens out volume before transcribing. Helps most with noisy or quiet recordings; adds a little processing time.</p>
+        <label class="toggle-row" id="spelling-row-transcribe"><input type="checkbox" id="opt-spelling-transcribe" checked> <span>Smart spelling fix (names, brands, technical terms)</span></label>
+        <label class="toggle-row" id="speakers-row-transcribe"><input type="checkbox" id="opt-speakers-transcribe"> <span>Label who is speaking (Speaker 1, Speaker 2&hellip;)</span></label>
+        <p class="field-hint" id="speakers-hint-transcribe">For meetings and interviews. Takes extra time.</p>
+      </fieldset>
+
+      <label class="field-label" for="opt-vocab-transcribe">
+        <span>Names &amp; terms to expect</span> <span class="field-optional">(optional — the best way to get tricky words spelled right)</span>
+      </label>
+      <input type="text" id="opt-vocab-transcribe" class="text-input" placeholder="e.g. Edunet Foundation, AICTE, BiLSTM, GARCH">
+
+      <div class="options-actions">
+        <button type="button" class="btn btn-text" id="btn-back-transcribe">&larr; <span>back</span></button>
+        <button type="button" class="btn btn-primary" id="btn-run-transcribe">Transcribe</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TEXT -> AUDIO: GIVE THE TEXT ============ -->
+  <section id="view-text-input" class="view" hidden>
+    <h2 class="section-title">Give your text</h2>
+
+    <div class="options-card">
+      <div class="tab-row" role="tablist">
+        <button type="button" class="tab-btn active" id="tab-write" role="tab" aria-selected="true">Write or paste text</button>
+        <button type="button" class="tab-btn" id="tab-file" role="tab" aria-selected="false">Upload PDF, Word or image</button>
+      </div>
+
+      <div id="panel-write">
+        <p class="field-hint source-note" id="text-source-note" hidden></p>
+        <textarea id="tts-text" class="text-input tts-textarea" rows="11" placeholder="Type your text here, or paste text you copied (Ctrl+V / &#8984;+V)&hellip;"></textarea>
+        <div class="text-meta">
+          <span id="tts-count" class="field-hint">0 words</span>
+          <span class="text-meta-actions">
+            <button type="button" class="btn btn-outline btn-small" id="btn-paste-clip">Paste from clipboard</button>
+            <button type="button" class="btn btn-text" id="btn-clear-text">Clear</button>
+          </span>
+        </div>
+      </div>
+
+      <div id="panel-file" hidden>
+        <div class="upload-card text-dropzone" id="text-dropzone">
+          <div class="upload-card-inner">
+            <p class="upload-instruction">Drag a file here, or choose one</p>
+            <div class="upload-actions">
+              <button type="button" class="btn btn-primary" id="btn-text-browse">Choose file</button>
+            </div>
+            <input type="file" id="text-file-input" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,image/*" hidden />
+            <p class="upload-hint">PDF, Word (.docx) or an image (PNG, JPG) &mdash; the text in it is read for you. You can check and edit it before continuing.</p>
+          </div>
+        </div>
+        <p class="field-hint" id="extract-status"></p>
+      </div>
+
+      <div class="options-actions">
+        <button type="button" class="btn btn-text" id="btn-text-back">&larr; <span>back</span></button>
+        <button type="button" class="btn btn-primary" id="btn-text-next">Next &rarr;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TEXT -> AUDIO: OPTIONS ============ -->
+  <section id="view-text-options" class="view" hidden>
+    <h2 class="section-title">Summary &amp; voice</h2>
+
+    <div class="options-card">
+      <fieldset>
+        <legend>summary length</legend>
+        <div class="summary-picker">
+          <select id="txt-summary-select" class="select-input" aria-label="Summary length in words">
+            <option value="30">30 words</option>
+            <option value="50">50 words</option>
+            <option value="70" selected>70 words</option>
+            <option value="100">100 words</option>
+            <option value="custom">Custom&hellip; (write your own)</option>
+          </select>
+          <input type="number" id="txt-summary-custom" class="text-input summary-custom" min="10" max="500" step="1" placeholder="words, e.g. 150" aria-label="Custom summary length in words" hidden>
+        </div>
+        <p class="field-hint">Pick a length from the list, or choose Custom and type the number of words you want (10 to 500).</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>narration voice (accent)</legend>
+        <div id="txt-voice-picker" class="voice-picker-mount"></div>
+        <label class="toggle-row"><input type="checkbox" id="txt-remember" checked> <span>Remember my voice for next time</span></label>
+        <p class="field-hint">Press the &#9654; next to any voice to hear a 10-second sample. This voice is used first on the results page; you can change it there, and download every accent later.</p>
+      </fieldset>
+
+      <fieldset class="toggle-list">
+        <legend>include</legend>
+        <label class="toggle-row"><input type="checkbox" id="txt-keypoints" checked> <span>Key points</span></label>
+        <label class="toggle-row"><input type="checkbox" id="txt-highlights" checked> <span>Highlights (dates, links, book/course/names)</span></label>
+        <label class="toggle-row" id="txt-insights-row"><input type="checkbox" id="txt-insights" checked> <span>AI insights</span></label>
+      </fieldset>
+
+      <label class="field-label" for="txt-context" id="txt-context-label">
+        <span>What is this for?</span> <span class="field-optional">(optional — sharpens the AI insights)</span>
+      </label>
+      <input type="text" id="txt-context" class="text-input" placeholder="e.g. product launch announcement">
+
+      <div class="options-actions">
+        <button type="button" class="btn btn-text" id="btn-text-options-back">&larr; <span>back</span></button>
+        <button type="button" class="btn btn-primary" id="btn-run-text">Create summary &amp; audio</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LOADING ============ -->
+  <section id="view-loading" class="view" hidden>
+    <div class="loading-block">
+      <svg class="hero-wave hero-wave-loading" viewBox="0 0 520 90" aria-hidden="true">
+        <g id="wave-bars-loading"></g>
+      </svg>
+      <p id="loading-text">Listening closely&hellip;</p>
+      <div class="progress-track" id="upload-progress-track" hidden>
+        <div class="progress-fill" id="upload-progress-fill"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NOT ENGLISH ============ -->
+  <section id="view-not-english" class="view" hidden>
+    <div class="not-english-card">
+      <h2 class="section-title">English audio only</h2>
+      <p class="not-english-message" id="not-english-message">This tool only works with English audio. Please provide English audio.</p>
+      <p class="field-hint">Nothing was transcribed. Go back to the start and upload or record English audio instead.</p>
+      <div class="options-actions">
+        <button type="button" class="btn btn-primary" id="btn-not-english-back">&larr; Back to the start</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HISTORY ============ -->
+  <section id="view-history" class="view" hidden>
+    <div class="results-head">
+      <h2 class="section-title">History</h2>
+      <button type="button" class="btn btn-text" id="btn-history-to-upload">+ New</button>
+    </div>
+    <p class="hero-lede">Past jobs on this server, most recent first.</p>
+    <div id="history-list"></div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <section id="view-results" class="view" hidden>
+    <div class="results-head">
+      <h2 class="section-title" id="results-title">Results</h2>
+      <div class="results-head-actions">
+        <button type="button" class="btn btn-text" id="btn-back-to-history" hidden>&larr; <span>History</span></button>
+      </div>
+    </div>
+
+    <p class="detected-lang" id="detected-lang"></p>
+    <p class="made-with-line" id="made-with-line" hidden></p>
+
+    <!-- transcript / whole text, summary, key points, AI insights, highlights are written in here -->
+    <div id="results-body"></div>
+
+    <div class="reanalyze-prompt" id="reanalyze-prompt" hidden>
+      <span>You edited the text — re-run the summary so it reflects the correction?</span>
+      <button type="button" class="btn btn-outline" id="btn-reanalyze">Re-run summary</button>
+    </div>
+
+    <!-- downloads are always at the bottom -->
+    <div class="download-card" id="downloads-card">
+      <h3>download</h3>
+      <p class="field-hint">Everything above as one file &mdash; English only.</p>
+      <div class="download-buttons">
+        <button type="button" class="btn btn-outline" data-export="pdf">PDF</button>
+        <button type="button" class="btn btn-outline" data-export="docx">Word (.docx)</button>
+        <button type="button" class="btn btn-outline" data-export="jpeg">Image</button>
+      </div>
+      <div id="downloads-row" class="downloads-row"></div>
+    </div>
+
+    <div class="download-card" id="audio-downloads-card" hidden>
+      <h3>download audio</h3>
+      <p class="field-hint">Tick the accents you want. One accent downloads as an MP3; several download together as a ZIP.</p>
+      <div id="audio-downloads-body"></div>
+    </div>
+
+    <div class="results-nav">
+      <button type="button" class="btn btn-outline" id="btn-restart">&#8635; Restart</button>
+      <button type="button" class="btn btn-primary" id="btn-previous">&larr; Previous page</button>
+    </div>
+  </section>
+
+  <div id="error-banner" class="error-banner" hidden></div>
+
+  <!-- ============ ACCESS KEY MODAL (only shown if the backend requires one) ============ -->
+  <div id="auth-modal" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <h2>Access key required</h2>
+      <p>This instance is locked with a shared access key. Ask whoever set it up for the key, then enter it below — your browser will remember it.</p>
+      <input type="password" id="auth-key-input" class="text-input" placeholder="Access key" autocomplete="off">
+      <p class="auth-error" id="auth-error" hidden>That key wasn't accepted. Try again.</p>
+      <button type="button" class="btn btn-primary" id="btn-auth-submit">Unlock</button>
+    </div>
+  </div>
+
+</main>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

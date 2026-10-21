@@ -1,0 +1,49 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+# openai must be >= 1.55.3: older versions (the 1.51.0 this project used to pin) pass a
+# `proxies=` argument that httpx 0.28+ removed, so creating the client crashes with
+# "Client.__init__() got an unexpected keyword argument 'proxies'" — on any fresh
+# install (Colab, Render) that pulls the latest httpx. The code only uses long-stable
+# calls, so any 1.x from there on is fine.
+openai>=1.55.3,<2
+pydantic==2.9.2
+pydantic-settings==2.5.2
+fpdf2==2.7.9
+python-dotenv==1.0.1
+slowapi==0.1.9
+python-docx==1.1.2
+Pillow==10.4.0
+
+# --- Text -> Audio ---
+# Free Microsoft neural voices (all the accents). Unpinned on purpose: Microsoft changes its
+# voice service from time to time and edge-tts ships fixes quickly, so newer is safer.
+edge-tts>=6.1.18
+# Backup voice service (Google) used automatically if edge-tts can't reach Microsoft.
+gTTS>=2.5.1
+# Read text out of uploaded PDF / Word / image files.
+pypdf>=4.0.0
+pypdfium2>=4.30.0     # draws scanned-PDF pages so they can be read with OCR
+pytesseract>=0.3.10   # needs the Tesseract program too (apt install tesseract-ocr) — see README
+
+# NOTE: ffmpeg is required as a SYSTEM binary (not a pip package) for the
+# "Reduce background noise" option (services/audio_preprocessing.py) —
+# install it separately: `apt install ffmpeg` / `brew install ffmpeg`.
+# Most systems already have it; Colab does by default. If it's missing,
+# noise reduction is skipped automatically and the job still completes
+# with the original audio.
+
+# Optional, only needed if you enable speaker diarization (see README)
+# pyannote.audio==3.3.1
+# torch
+
+# Optional, only needed if you set TRANSCRIPTION_BACKEND=local in .env to
+# run transcription with no OpenAI account/billing at all (see
+# services/local_transcription.py). Also needs ffmpeg (see note above).
+# "av<19" is pinned deliberately: PyAV 19 (Sep 2026) removed an argument
+# faster-whisper's current release still passes, which breaks every local
+# transcription with "open() got an unexpected keyword argument
+# 'metadata_errors'" — an upstream bug between those two libraries, not
+# this project. Drop the pin once faster-whisper ships a fix for PyAV 19.
+# faster-whisper==1.2.1
+# av<19
