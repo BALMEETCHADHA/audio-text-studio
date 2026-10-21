@@ -16,7 +16,7 @@ services:
       - key: ACCESS_KEY          # STRONGLY advised on a public link. One key, or "ravi=key1,priya=key2" (see .env.example)
         sync: false
       - key: DAILY_JOB_LIMIT     # jobs per person per 24h (0 = unlimited). 20 is a sensible start.
-        value: "20"
+        value: "0"
 
       # --- Everything below makes Groq do BOTH jobs for free, with no GPU and no big RAM:
       #     Whisper for the transcript, and an OpenAI open-weight model (gpt-oss) for summary/key points/AI insights.
